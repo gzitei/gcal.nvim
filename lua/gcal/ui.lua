@@ -1261,12 +1261,21 @@ function M.goto_current_meeting()
     table.sort(in_progress, function(a, b) return a.start_ts > b.start_ts end)
 
     local candidates = {}
-    for _, p in ipairs(in_progress) do
-      table.insert(candidates, p)
+
+    if #in_progress > 0 then
+        if #in_progress == 1 then
+            open_url(in_progress[1].event)
+            return
+        end
+
+        candidates = in_progress
+    else
+        if upcoming then
+            open_url(upcoming.event)
+            return
+        end
     end
-    if upcoming then
-      table.insert(candidates, upcoming)
-    end
+
 
     if #candidates == 0 then
       vim.notify("No current or upcoming meeting found", vim.log.levels.INFO, { title = "gcal.nvim" })
