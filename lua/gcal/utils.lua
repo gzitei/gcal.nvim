@@ -303,7 +303,8 @@ function M.truncate(str, max_len)
   if max_len <= 2 then
     return str:sub(1, max_len)
   end
-  return str:sub(1, max_len - 2) .. ".."
+  local ellipsis = "..."
+  return str:sub(1, max_len - #ellipsis) .. ellipsis
 end
 
 function M.get_meeting_url(event)
