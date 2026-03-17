@@ -324,6 +324,28 @@ function M.get_meeting_url(event)
   return nil
 end
 
+function M.is_confirmed_for_me(event)
+  if not event then
+    return false
+  end
+
+  local attendees = event.attendees
+  if type(attendees) == "table" then
+    for _, attendee in ipairs(attendees) do
+      if attendee.self == true then
+        return attendee.responseStatus == "accepted"
+      end
+    end
+  end
+
+  local organizer = event.organizer
+  if type(organizer) == "table" and organizer.self == true then
+    return true
+  end
+
+  return false
+end
+
 --- Convert common Google Calendar HTML to markdown.
 --- Handles <br>, <p>, <b>/<strong>, <i>/<em>, <a>, <ul>/<ol>/<li>,
 --- entity decoding, and whitespace normalisation.

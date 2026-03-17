@@ -140,32 +140,52 @@ local function check_events(events)
     end
 
     local event_key = event.id or event.summary or tostring(event)
+    local is_confirmed = utils.is_confirmed_for_me(event)
 
-    for _, minutes in ipairs(config.options.alert_minutes) do
-      local alert_key = event_key .. ":" .. minutes
-      local window_start = minutes * 60
-      local window_end = window_start - config.options.poll_interval_seconds
-      if window_end < 0 then
-        window_end = 0
+    if is_confirmed then
+      for _, minutes in ipairs(config.options.alert_minutes) do
+        local alert_key = event_key .. ":" .. minutes
+        local window_start = minutes * 60
+        local window_end = window_start - config.options.poll_interval_seconds
+        if window_end < 0 then
+          window_end = 0
+        end
+
+        if diff_seconds <= window_start and diff_seconds > window_end and not notified[alert_key] then
+          notified[alert_key] = true
+          local msg, url = build_message(event, string.format("In %d min", minutes))
+          local nvim_notify = get_nvim_notify()
+          if nvim_notify then
+            nvim_notify.notify(msg, vim.log.levels.INFO,
+              inject_url_keymap({ title = "Google Calendar", timeout = 8000 }, url))
+          else
+            vim.notify(msg, vim.log.levels.INFO, { title = "Google Calendar", timeout = 8000 })
+          end
+        end
       end
 
-      if diff_seconds <= window_start and diff_seconds > window_end and not notified[alert_key] then
-        notified[alert_key] = true
-        local msg, url = build_message(event, string.format("In %d min", minutes))
+      if config.options.countdown.enabled then
+        local countdown_secs = config.options.countdown.seconds
+        if diff_seconds <= countdown_secs and diff_seconds > 0 then
+          start_countdown(event, diff_seconds)
+        end
+      end
+    else
+      local now_key = event_key .. ":starting_now"
+      local now_window = config.options.poll_interval_seconds
+      if diff_seconds <= now_window and diff_seconds >= 0 and not notified[now_key] then
+        notified[now_key] = true
+        local msg, url = build_message(event, "Meeting starting NOW")
         local nvim_notify = get_nvim_notify()
         if nvim_notify then
           nvim_notify.notify(msg, vim.log.levels.INFO,
-            inject_url_keymap({ title = "Google Calendar", timeout = 8000 }, url))
+            inject_url_keymap({ title = "Google Calendar", timeout = config.options.countdown.final_timeout }, url))
         else
-          vim.notify(msg, vim.log.levels.INFO, { title = "Google Calendar", timeout = 8000 })
+          vim.notify(msg, vim.log.levels.INFO, {
+            title = "Google Calendar",
+            timeout = config.options.countdown.final_timeout,
+          })
         end
-      end
-    end
-
-    if config.options.countdown.enabled then
-      local countdown_secs = config.options.countdown.seconds
-      if diff_seconds <= countdown_secs and diff_seconds > 0 then
-        start_countdown(event, diff_seconds)
       end
     end
 

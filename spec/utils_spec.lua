@@ -296,3 +296,45 @@ describe("utils.get_meeting_url", function()
     assert.equal("https://meet.google.com/primary", utils.get_meeting_url(event))
   end)
 end)
+
+-- ─────────────────────────────────────────────────────────────────────────────
+describe("utils.is_confirmed_for_me", function()
+  it("returns true when self attendee accepted", function()
+    local event = {
+      attendees = {
+        { email = "me@example.com", self = true, responseStatus = "accepted" },
+      },
+    }
+    assert.is_true(utils.is_confirmed_for_me(event))
+  end)
+
+  it("returns false when self attendee declined", function()
+    local event = {
+      attendees = {
+        { email = "me@example.com", self = true, responseStatus = "declined" },
+      },
+      organizer = { self = true },
+    }
+    assert.is_false(utils.is_confirmed_for_me(event))
+  end)
+
+  it("uses organizer.self as fallback when self attendee is missing", function()
+    local event = {
+      organizer = { self = true },
+      attendees = {
+        { email = "other@example.com", responseStatus = "accepted" },
+      },
+    }
+    assert.is_true(utils.is_confirmed_for_me(event))
+  end)
+
+  it("returns false when no self attendee and organizer is not self", function()
+    local event = {
+      organizer = { self = false },
+      attendees = {
+        { email = "other@example.com", responseStatus = "accepted" },
+      },
+    }
+    assert.is_false(utils.is_confirmed_for_me(event))
+  end)
+end)

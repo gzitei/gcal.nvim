@@ -114,6 +114,16 @@ local function deduplicate_events(events, calendars)
   return result
 end
 
+local function filter_confirmed_events(events)
+  local confirmed = {}
+  for _, ev in ipairs(events or {}) do
+    if utils.is_confirmed_for_me(ev) then
+      table.insert(confirmed, ev)
+    end
+  end
+  return confirmed
+end
+
 local function get_day_index(ts, week_start_ts)
   local diff = os.difftime(ts, week_start_ts)
   return math.floor(diff / 86400)
@@ -377,7 +387,8 @@ local function render(events, calendars)
   end
 
   state.calendars = calendars or {}
-  state.events = deduplicate_events(events or {}, state.calendars)
+  local deduped_events = deduplicate_events(events or {}, state.calendars)
+  state.events = filter_confirmed_events(deduped_events)
 
   colors.setup_highlights(calendars)
 
@@ -394,7 +405,7 @@ local function render(events, calendars)
 
   local parsed = {}
   local all_day = {}
-  for _, ev in ipairs(events) do
+  for _, ev in ipairs(state.events) do
     local p = parse_event_times(ev)
     if p then
       if p.all_day then
