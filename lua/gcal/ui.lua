@@ -368,6 +368,15 @@ local function get_nvim_notify()
     return nil
 end
 
+local function notify(msg, level, opts)
+    local nvim_notify = get_nvim_notify()
+    if nvim_notify then
+        nvim_notify.notify(msg, level, opts)
+    else
+        vim.notify(msg, level, opts)
+    end
+end
+
 local function open_url_from_string(url)
     if not url or url == '' then
         return
@@ -463,7 +472,7 @@ end
 local function notify_no_meeting_with_next(next_meeting)
     local no_meeting_msg = 'No meeting in the next 15 minutes.'
     local max_width = #no_meeting_msg
-    vim.notify(no_meeting_msg, vim.log.levels.INFO, { title = 'gcal.nvim' })
+    notify(no_meeting_msg, vim.log.levels.INFO, { title = 'gcal.nvim' })
 
     local lines = {}
     append_wrapped_kv(
@@ -495,24 +504,15 @@ local function notify_no_meeting_with_next(next_meeting)
     end
 
     local msg = table.concat(lines, '\n')
-    local nvim_notify = get_nvim_notify()
-    if nvim_notify then
-        nvim_notify.notify(
-            msg,
-            vim.log.levels.INFO,
-            inject_url_keymap({
-                title = 'gcal.nvim',
-                timeout = 12000,
-                max_width = max_width,
-            }, url)
-        )
-    else
-        vim.notify(
-            msg,
-            vim.log.levels.INFO,
-            { title = 'gcal.nvim', timeout = 12000 }
-        )
-    end
+    notify(
+        msg,
+        vim.log.levels.INFO,
+        inject_url_keymap({
+            title = 'gcal.nvim',
+            timeout = 12000,
+            max_width = max_width,
+        }, url)
+    )
 end
 
 local function collect_current_and_upcoming(events, now)
@@ -865,7 +865,7 @@ local function open_url(raw_event)
     local url = utils.get_meeting_url(raw_event)
     if not url then
         local title = (raw_event and raw_event.summary) or 'this event'
-        vim.notify(
+        notify(
             'No URL for ' .. title,
             vim.log.levels.INFO,
             { title = 'gcal.nvim' }
@@ -1390,7 +1390,7 @@ local function navigate_event(dir)
                         end
                     end
                     if not first then
-                        vim.notify(
+                        notify(
                             'No more events',
                             vim.log.levels.INFO,
                             { title = 'gcal.nvim' }
@@ -1442,7 +1442,7 @@ local function navigate_event(dir)
                         end
                     end
                     if not last then
-                        vim.notify(
+                        notify(
                             'No previous events',
                             vim.log.levels.INFO,
                             { title = 'gcal.nvim' }
@@ -1651,7 +1651,7 @@ function M.goto_current_meeting()
                     if is_same_day(upcoming.start_ts, now) then
                         notify_no_meeting_with_next(upcoming)
                     else
-                        vim.notify(
+                        notify(
                             'No meeting in the next 15 minutes.',
                             vim.log.levels.INFO,
                             { title = 'gcal.nvim' }
@@ -1660,7 +1660,7 @@ function M.goto_current_meeting()
                     return
                 end
 
-                vim.notify(
+                notify(
                     'No meeting in the next 15 minutes.',
                     vim.log.levels.INFO,
                     { title = 'gcal.nvim' }
@@ -1669,7 +1669,7 @@ function M.goto_current_meeting()
             end
 
             if #candidates == 0 then
-                vim.notify(
+                notify(
                     'No current or upcoming meeting found',
                     vim.log.levels.INFO,
                     { title = 'gcal.nvim' }
