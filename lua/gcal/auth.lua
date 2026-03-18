@@ -9,6 +9,41 @@ local GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
 local SCOPES = table.concat({
   "https://www.googleapis.com/auth/calendar.readonly",
 }, " ")
+local ACCESS_TOKEN_REFRESH_SKEW_SECONDS = 300
+
+local function to_number(value)
+  if type(value) == "number" then
+    return value
+  end
+  if type(value) == "string" then
+    return tonumber(value)
+  end
+  return nil
+end
+
+local function apply_token_expiry(tokens)
+  if type(tokens) ~= "table" then
+    return tokens
+  end
+
+  tokens.expires_in = to_number(tokens.expires_in) or 3600
+  tokens.expires_at = to_number(tokens.expires_at)
+  tokens.obtained_at = to_number(tokens.obtained_at)
+
+  if not tokens.obtained_at then
+    if tokens.expires_at then
+      tokens.obtained_at = tokens.expires_at - tokens.expires_in
+    else
+      tokens.obtained_at = os.time()
+    end
+  end
+
+  if not tokens.expires_at then
+    tokens.expires_at = tokens.obtained_at + tokens.expires_in
+  end
+
+  return tokens
+end
 
 local function get_redirect_uri()
   return "http://localhost:" .. config.options.auth.port
@@ -82,7 +117,8 @@ local function exchange_code(code, client_id, client_secret, callback)
           vim.notify("Failed to parse token response", vim.log.levels.ERROR, { title = "gcal.nvim" })
           return
         end
-        data.expires_at = os.time() + (data.expires_in or 3600)
+        data.obtained_at = os.time()
+        data = apply_token_expiry(data)
         utils.write_json(config.options.auth.token_path, data)
         vim.notify("Authentication successful!", vim.log.levels.INFO, { title = "gcal.nvim" })
         if callback then
@@ -247,8 +283,9 @@ function M.authenticate_paste(callback)
     end
 
     if not data.expires_at then
-      data.expires_at = os.time() + (data.expires_in or 3600)
+      data.obtained_at = os.time()
     end
+    data = apply_token_expiry(data)
 
     utils.write_json(config.options.auth.token_path, data)
     vim.notify("Token saved successfully!", vim.log.levels.INFO, { title = "gcal.nvim" })
@@ -284,7 +321,12 @@ function M.authenticate(callback)
 end
 
 function M.get_tokens()
-  return utils.read_json(config.options.auth.token_path)
+  local tokens = utils.read_json(config.options.auth.token_path)
+  if not tokens then
+    return nil
+  end
+  local normalized = apply_token_expiry(tokens)
+  return normalized
 end
 
 function M.refresh_token(callback)
@@ -316,7 +358,9 @@ function M.refresh_token(callback)
           return
         end
         tokens.access_token = data.access_token
-        tokens.expires_at = os.time() + (data.expires_in or 3600)
+        tokens.expires_in = to_number(data.expires_in) or tokens.expires_in or 3600
+        tokens.obtained_at = os.time()
+        tokens.expires_at = tokens.obtained_at + tokens.expires_in
         if data.refresh_token then
           tokens.refresh_token = data.refresh_token
         end
@@ -335,9 +379,11 @@ function M.get_access_token(callback)
     vim.notify("Not authenticated. Run :GcalAuth", vim.log.levels.WARN, { title = "gcal.nvim" })
     return
   end
-  if tokens.expires_at and os.time() >= tokens.expires_at - 60 then
+  if tokens.expires_at and os.time() >= tokens.expires_at - ACCESS_TOKEN_REFRESH_SKEW_SECONDS then
     M.refresh_token(function(refreshed)
-      callback(refreshed.access_token)
+      if refreshed and refreshed.access_token then
+        callback(refreshed.access_token)
+      end
     end)
   else
     callback(tokens.access_token)

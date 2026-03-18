@@ -516,12 +516,20 @@ local function notify_no_meeting_with_next(next_meeting)
 end
 
 local function collect_current_and_upcoming(events, now)
+    local ignored_event_types = {
+        focusTime = true,
+        outOfOffice = true,
+        workingLocation = true,
+    }
+
     local in_progress = {}
     local upcoming = nil
 
     for _, ev in ipairs(events or {}) do
         local p = parse_event_times(ev)
-        if p and not p.all_day and p.start_ts and p.end_ts then
+        local event_type = ev and ev.eventType
+        local is_meeting = not ignored_event_types[event_type]
+        if p and is_meeting and not p.all_day and p.start_ts and p.end_ts then
             if now >= p.start_ts and now < p.end_ts then
                 table.insert(in_progress, p)
             elseif p.start_ts > now then
